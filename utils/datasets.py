@@ -20,7 +20,7 @@ REPO_NAME = "UT-TML"
 REPO_PATH = os.path.join(ROOT, REPO_NAME)
 sys.path.insert(0, REPO_PATH)
 print(os.getcwd())
-with open('config.json') as config_file:
+with open('UT-TML/config.json') as config_file:
     config = json.load(config_file)
     logging.info("Configuration loaded successfully")
 
