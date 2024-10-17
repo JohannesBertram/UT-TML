@@ -13,6 +13,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Load configuration
 import os
+import sys
+print(os.getcwd())
+ROOT = "/kaggle/working"
+REPO_NAME = "UT-TML"
+REPO_PATH = os.path.join(ROOT, REPO_NAME)
+sys.path.insert(0, REPO_PATH)
 print(os.getcwd())
 with open('config.json') as config_file:
     config = json.load(config_file)
