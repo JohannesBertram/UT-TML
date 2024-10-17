@@ -12,6 +12,8 @@ from tqdm import tqdm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load configuration
+import os
+print(os.getcwd())
 with open('config.json') as config_file:
     config = json.load(config_file)
     logging.info("Configuration loaded successfully")
