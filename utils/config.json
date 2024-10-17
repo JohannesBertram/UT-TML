@@ -13,7 +13,7 @@
   "INVERTED_OFF_DIAG_PROPORTION": 100,
   "DSPRITES_LOCAL_PATH": "/tmp/dsprites.npz",
   "DSPRITES_URL": "https://github.com/deepmind/dsprites-dataset/raw/master/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
-  "CACHE_DIR": "./1_ood",
+  "CACHE_DIR": "./1_ood2",
   "NUM_EPOCHS": 10,
   "DEFAULT_START_LR": 0.01,
   "RANDOM_SEED": 42,
