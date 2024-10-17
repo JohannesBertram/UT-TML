@@ -227,31 +227,123 @@ class DiagonalOffDiagonalDataset(DSpritesDatasetMultiLabel):
     def __len__(self):
         return len(self.biased_idx_colored_dsprites_indices)
     
+
+class OneEnvDataset(DSpritesDatasetMultiLabel):
+    def __init__(
+        self,
+        dataset_size,
+        num_classes,
+        split,
+        bias_cue,
+        task_cue,
+        bias_label = 0,
+        off_diag_proportion=0,
+    ):
+        super().__init__(num_classes=num_classes, split=split)
+        self.bias_label = bias_label
+        self.bias_cue = bias_cue
+        self.task_cue = task_cue
+        self.biased_idx_colored_dsprites_indices = self._setup_indices(dataset_size, off_diag_proportion)
+        random.shuffle(self.biased_idx_colored_dsprites_indices)
+
+    def _setup_indices(self, dataset_size, off_diag_proportion):
+        logging.info("Setting up indices for DiagonalOffDiagonalDataset")
+        if not 0 <= off_diag_proportion <= 1:
+            raise ValueError("off_diag_proportion must be between 0 and 1")
+        
+        bias_indices = defaultdict(set)
+        task_indices = defaultdict(set)
+        bias_idx = self.latent['names'].index(self.bias_cue)
+        task_idx = self.latent['names'].index(self.task_cue)
+
+        for idx_idx_colored_dsprites_indices_and_labels, (_, labels) in tqdm(enumerate(self.idx_colored_dsprites_indices_and_labels), desc="Creating labels to indices sets"):
+            bias_label = labels[bias_idx]
+            task_label = labels[task_idx]
+            bias_indices[bias_label].add(idx_idx_colored_dsprites_indices_and_labels)
+            task_indices[task_label].add(idx_idx_colored_dsprites_indices_and_labels)
+
+        logging.debug(f"Created labels to indices set for bias cue with {len(bias_indices)} labels")
+        logging.debug(f"Created labels to indices set for task cue with {len(task_indices)} labels")
+
+        diag_indices = []
+        off_diag_indices = []
+
+        env_samples = bias_indices[self.bias_label]
+
+        for label in tqdm(task_indices.keys(), desc="Processing samples"):
+            diag_samples = set.intersection(env_samples, task_indices[label])
+            diag_indices.extend(sorted(diag_samples))
+            
+            if off_diag_proportion > 0:
+                off_diag_samples = task_indices[label] - diag_samples
+                off_diag_indices.extend(sorted(off_diag_samples))
+
+        num_off_diag = int(dataset_size * off_diag_proportion)
+        num_diag = dataset_size - num_off_diag
+
+        if num_diag <= 0 or (off_diag_proportion > 0 and num_off_diag <= 0):
+            raise ValueError("Not enough samples for diagonal or off-diagonal cells")
+
+        if num_diag > len(diag_indices):
+            raise ValueError("Not enough diagonal samples available")
+
+        indices = random.sample(diag_indices, num_diag)
+        if off_diag_proportion > 0:
+            indices += random.sample(off_diag_indices, num_off_diag)
+
+        logging.info(f"Created {len(indices)} indices")
+        return indices
+    
+    def __getitem__(self, idx):
+        idx_idx_colored_dsprites_indices_and_labels = self.biased_idx_colored_dsprites_indices[idx]
+        return super().__getitem__(idx_idx_colored_dsprites_indices_and_labels)
+
+    def __len__(self):
+        return len(self.biased_idx_colored_dsprites_indices)
+    
+
+
 def load_dataloader(
     split: str = "train",
     dataset_size: int = config["TRAIN_DATASET_SIZE"],
     bias_cue: str = None,
     task_cue: str = None,
-    off_diag_proportion: float = 0
+    off_diag_proportion: float = 0,
+    bias_label: int = None
 ) -> torch.utils.data.DataLoader:
     
     if bias_cue is None or task_cue is None:
-        logging.info(f"Creating unbiased dsprites dataloader for split: {split}")
-        dataset = DSpritesDatasetMultiLabel(
-            num_classes=config["NUM_CLASSES"],
-            split=split,
-            dataset_size=dataset_size
-        )
+
+            logging.info(f"Creating unbiased dsprites dataloader for split: {split}")
+            dataset = DSpritesDatasetMultiLabel(
+                num_classes=config["NUM_CLASSES"],
+                split=split,
+                dataset_size=dataset_size
+            )
+        
     else:
-        logging.info(f"Creating biased dsprites dataloader for split: {split}")
-        dataset = DiagonalOffDiagonalDataset(
-            dataset_size=dataset_size,
-            num_classes=config["NUM_CLASSES"],
-            split=split,
-            bias_cue=bias_cue,
-            task_cue=task_cue,
-            off_diag_proportion=off_diag_proportion,
-        )
+        if bias_label is None:
+            logging.info(f"Creating biased dsprites dataloader for split: {split}")
+            dataset = DiagonalOffDiagonalDataset(
+                dataset_size=dataset_size,
+                num_classes=config["NUM_CLASSES"],
+                split=split,
+                bias_cue=bias_cue,
+                task_cue=task_cue,
+                off_diag_proportion=off_diag_proportion,
+            )
+        else:
+            logging.info(f"Creating biased dsprites dataloader for split: {split}")
+            dataset = OneEnvDataset(
+                dataset_size=dataset_size,
+                num_classes=config["NUM_CLASSES"],
+                split=split,
+                bias_cue=bias_cue,
+                task_cue=task_cue,
+                off_diag_proportion=off_diag_proportion,
+                bias_label=bias_label
+            )
+
 
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
